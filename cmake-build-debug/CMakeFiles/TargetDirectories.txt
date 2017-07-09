@@ -1,3 +1,0 @@
-C:/Users/Tim/Documents/Coding/C++/FunctionPointerTesting/cmake-build-debug/CMakeFiles/FunctionPointerTesting.dir
-C:/Users/Tim/Documents/Coding/C++/FunctionPointerTesting/cmake-build-debug/CMakeFiles/edit_cache.dir
-C:/Users/Tim/Documents/Coding/C++/FunctionPointerTesting/cmake-build-debug/CMakeFiles/rebuild_cache.dir
