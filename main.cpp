@@ -78,7 +78,6 @@ struct CommandTemplate
 {
 	int commandNamePosition;
 	std::string commandName;
-	int partsSize;
 	BaseCommand* commandType;
 	std::vector<int> varParts;
 };
@@ -86,9 +85,9 @@ struct CommandTemplate
 void ScriptEngine::compile()
 {
 	std::vector<CommandTemplate> commandTemplates = {
-			{1,"get",2, new GetCommand(), {0}},
-			{1,"add",4, new AddCommand(), {0,2,3}},
-			{0,"print",2, new PrintCommand(), {1}},
+			{1,"get",new BaseCommand([](BaseCommand* b){b->setVar(0,getPosition());}), {0}},
+			{1,"add",new BaseCommand([](BaseCommand* b){b->setVar(0,addPosition(b->getVar<vec3>(1), b->getVar<vec3>(2)));}), {0,2,3}},
+			{0,"print",new BaseCommand([](BaseCommand* b){printPosition(b->getVar<vec3>(0));}), {1}},
 	};
 	for(std::string s : script)
 	{
@@ -99,7 +98,7 @@ void ScriptEngine::compile()
 		{
 			if(parts[ct.commandNamePosition] == ct.commandName)
 			{
-				if(partsSize == ct.partsSize)
+				if(partsSize == ct.varParts.size()+1)
 				{
 					std::vector<std::string> varNames;
 
@@ -145,34 +144,4 @@ int main()
 		std::cout << "Cancelling execution *** " << reason << " ***" << std::endl;
 	}
 	return 0;
-}
-
-void GetCommand::operator()()
-{
-	(*vars)[varNames[0]] = getPosition();
-}
-
-GetCommand::GetCommand()
-{
-
-}
-
-void AddCommand::operator()()
-{
-	(*vars)[varNames[0]] = addPosition(getVar<vec3>(varNames[1]), getVar<vec3>(varNames[2]));
-}
-
-AddCommand::AddCommand()
-{
-
-}
-
-void PrintCommand::operator()()
-{
-	printPosition(getVar<vec3>(varNames[0]));
-}
-
-PrintCommand::PrintCommand()
-{
-
 }

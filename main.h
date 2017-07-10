@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <functional>
 
 struct vec3 {
 	friend std::ostream &operator<<(std::ostream &os, const vec3 &vec31)
@@ -25,71 +26,39 @@ struct BaseCommand
 {
 	std::map<std::string, void*>* vars;
 	std::vector<std::string> varNames;
+	std::function<void(BaseCommand*)> func;
 
 	template<typename T>
-	T* getVar(std::string varName)
+	T* getVar(int varIndex)
 	{
-		auto v = (*vars).find(varName);
+		auto v = (*vars).find(varNames[varIndex]);
 		if(v == (*vars).end())
 		{
-			std::cout << varName << std::endl;
+			std::cout << varNames[varIndex] << std::endl;
 			throw "Non-existent variable accessed";
 		}
 		return (T*)v->second;
+	}
+	
+	template <typename T>
+	void setVar(int varIndex, T* value)
+	{
+		(*vars)[varNames[varIndex]] = value;
 	}
 
 	void set(std::map<std::string, void *> *vars, std::vector<std::string> varNames){
 		BaseCommand::vars = vars;
 		BaseCommand::varNames = varNames;
 	}
-	BaseCommand() {}
+	BaseCommand(std::function<void(BaseCommand*)> func) : func(func) {}
 
 	virtual ~BaseCommand() {}
-	virtual void operator()() {}
+	virtual void operator()() {
+		func(this);
+	}
 
 	virtual BaseCommand* copy() {
-		return new BaseCommand;
-	}
-};
-
-struct GetCommand : BaseCommand
-{
-	GetCommand();
-
-	void set(std::map<std::string, void *> *vars, const std::vector<std::string> &varNames)
-		{BaseCommand::set(vars, varNames);}
-	void operator()();
-
-	GetCommand* copy() {
-		return new GetCommand;
-	}
-};
-
-struct AddCommand : BaseCommand
-{
-	AddCommand();
-
-	void set(std::map<std::string, void *> *vars, const std::vector<std::string> &varNames)
-			{BaseCommand::set(vars, varNames);}
-
-	void operator()();
-
-	AddCommand* copy() {
-		return new AddCommand;
-	}
-};
-
-struct PrintCommand : public BaseCommand
-{
-	PrintCommand();
-
-	void set(std::map<std::string, void *> *vars, const std::vector<std::string> &varNames)
-		{BaseCommand::set(vars, varNames);}
-
-	void operator()();
-
-	PrintCommand* copy() {
-		return new PrintCommand;
+		return new BaseCommand(func);
 	}
 };
 
