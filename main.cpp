@@ -1,47 +1,17 @@
-#include <iostream>
-#include <functional>
-#include <vector>
-#include <map>
-#include <string>
+#include "main.h"
 #include <memory>
-
-struct vec3 {
-	friend std::ostream &operator<<(std::ostream &os, const vec3 &vec31)
-	{
-		os << "x: " << vec31.x << " y: " << vec31.y << " z: " << vec31.z;
-		return os;
-	}
-
-	vec3(float x, float y, float z) : x(x), y(y), z(z) {}
-
-	float x,y,z;};
+#include <fstream>
+#include <algorithm>
 
 vec3* getPosition()
 {
 	return new vec3(1.0,3.0,2.0);
 }
 
-class BaseCommand
+vec3* addPosition(vec3* p1, vec3* p2)
 {
-public:
-	void* result;
-
-	void *getResult() const
-	{
-		return result;
-	}
-
-	virtual ~BaseCommand() {}
-
-	virtual void operator()() {}
-};
-
-vec3* addPosition(BaseCommand* p1, BaseCommand* p2)
-{
-	(*p1)();
-	(*p2)();
-	vec3* pa = static_cast<vec3*>(p1->getResult());
-	vec3* pb = static_cast<vec3*>(p2->getResult());
+	vec3* pa = p1;
+	vec3* pb = p2;
 	vec3* r = new vec3(
 			pa->x+pb->x,
 			pa->y+pb->y,
@@ -50,10 +20,9 @@ vec3* addPosition(BaseCommand* p1, BaseCommand* p2)
 	return r;
 }
 
-void printPosition(BaseCommand* p)
+void printPosition(vec3* p)
 {
-	(*p)();
-	std::cout << *static_cast<vec3*>(p->getResult());
+	std::cout << *p;
 	std::cout << " printed" << std::endl;
 }
 
@@ -84,90 +53,126 @@ std::vector<std::string> split(std::string toSplit, std::vector<char> onMe)
 	return parts;
 }
 
-class GetCommand : public BaseCommand
+std::string deleteChars(std::string clearMe, std::vector<char> clearThese)
 {
-public:
-	std::function<vec3*(void)> func;
+	std::string newString = "";
+	for(int i = 0; i < clearMe.length(); i++)
+	{
+		char cc = clearMe[i];
+		bool add = true;
+		for(char c : clearThese)
+		{
+			if(cc == c)
+			{
+				add = false;
+				break;
+			}
+		}
+		if(add)
+			newString += cc;
+	}
+	return newString;
+}
 
-	GetCommand(std::function<vec3*(void)> f) : func(f){}
-
-	void operator()() {result = func();}
+struct CommandTemplate
+{
+	int commandNamePosition;
+	std::string commandName;
+	int partsSize;
+	BaseCommand* commandType;
+	std::vector<int> varParts;
 };
 
-class AddCommand : public BaseCommand
+void ScriptEngine::compile()
 {
-public:
-	BaseCommand* a;
-	BaseCommand* b;
-	std::function<vec3*(BaseCommand*,BaseCommand*)> func;
-	
-	AddCommand(std::function<vec3*(BaseCommand*,BaseCommand*)> f, BaseCommand* aa, BaseCommand* bb) 
-		: func(f), a(aa), b(bb) {}
-
-	void operator()() {result = func(a,b);}
-};
-
-class PrintCommand : public BaseCommand
-{
-public:
-	BaseCommand* a;
-	std::function<void(BaseCommand*)> func;
-
-	PrintCommand(std::function<void(BaseCommand*)> f, BaseCommand* aa) : func(f), a(aa) {}
-
-	void operator()() {func(a);}
-};
-
-void compile(std::vector<std::string> script)
-{
-	std::map<std::string, BaseCommand*> vars;
+	std::vector<CommandTemplate> commandTemplates = {
+			{1,"get",2, new GetCommand(), {0}},
+			{1,"add",4, new AddCommand(), {0,2,3}},
+			{0,"print",2, new PrintCommand(), {1}},
+	};
 	for(std::string s : script)
 	{
-		if(s.find("get") != s.npos)
+		std::vector<std::string> parts = split(s, {'=','(',',',')'});
+		unsigned int partsSize = (unsigned int) parts.size();
+		// command name position, command name, parts size, command type, {variables}
+		for(CommandTemplate ct : commandTemplates)
 		{
-			std::vector<std::string> parts = split(s, {' '});
-			if(parts.size() == 3)
+			if(parts[ct.commandNamePosition] == ct.commandName)
 			{
-				vars[parts[0]] = new GetCommand(getPosition);
-			}
-		}
-		else if(s.find("add") != s.npos)
-		{
-			std::vector<std::string> parts = split(s, {' ','(',',',')'});
-			if(parts.size() == 5)
-			{
-				vars[parts[0]] = new AddCommand(addPosition,vars[parts[3]],vars[parts[4]]);
-			}
-		}
-		else if(s.find("print") != s.npos)
-		{
-			std::vector<std::string> parts = split(s, {' ','(',',',')'});
-			if(parts.size() == 2)
-			{
-				BaseCommand* a = new PrintCommand(printPosition, vars[parts[1]]);
-				(*a)();
+				if(partsSize == ct.partsSize)
+				{
+					std::vector<std::string> varNames;
+
+					std::for_each(ct.varParts.begin(), ct.varParts.end(), [&varNames,parts](int n){
+						varNames.push_back(parts[n]);
+					});
+					BaseCommand* b = ct.commandType->copy();
+					b->set(&vars, varNames);
+					commands.push_back(b);
+				}
 			}
 		}
 	}
 }
 
+void ScriptEngine::run()
+{
+	for(BaseCommand* command : commands)
+	{
+		(*command)();
+	}
+}
+
 int main()
 {
-	//Get (a) (vec3)
-	//Get (b) (vec3)
-	//Add (a, b) (c) (vec3)
-	//Print (c) (void)
+	std::vector<std::string> scriptLines;
+	std::ifstream stream("../script.scr", std::ios::in);
+	if(stream.is_open())
+	{
+		std::string line;
+		while(std::getline(stream, line))
+			scriptLines.push_back(deleteChars(line, {' ', '\t', ';'}));
+		stream.close();
+	}
 
-	std::vector<std::string> script = {"a = get",
-	                                   "b = get",
-	                                   "c = add(a,b)",
-	                                   "print(c)",
-	                                   "d = add(a,c)",
-	                                   "print(d)",
-	                                   "d = add(d,d)",
-	                                   "print(d)",
-	};
-
-	compile(script);
+	ScriptEngine scriptEngine;
+	scriptEngine.script = scriptLines;
+	scriptEngine.compile();
+	try
+	{
+		scriptEngine.run();
+	} catch(char const* reason) {
+		std::cout << "Cancelling execution *** " << reason << " ***" << std::endl;
+	}
 	return 0;
+}
+
+void GetCommand::operator()()
+{
+	(*vars)[varNames[0]] = getPosition();
+}
+
+GetCommand::GetCommand()
+{
+
+}
+
+void AddCommand::operator()()
+{
+	(*vars)[varNames[0]] = addPosition(getVar<vec3>(varNames[1]), getVar<vec3>(varNames[2]));
+}
+
+AddCommand::AddCommand()
+{
+
+}
+
+void PrintCommand::operator()()
+{
+	printPosition(getVar<vec3>(varNames[0]));
+}
+
+PrintCommand::PrintCommand()
+{
+
 }

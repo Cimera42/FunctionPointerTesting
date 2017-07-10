@@ -1,0 +1,8 @@
+a = get
+b = get
+c = add(a,b)
+print(c)
+d = add(a,c)
+print(d)
+d = add(d,d)
+print(d)
